@@ -1,5 +1,5 @@
 {
-  "name": "ozon-名称简介ai生成",
+  "name": "ozon-跨境电商助手-(deepseek版)",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -12,7 +12,7 @@
     "lucide-react": "^0.562.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "@google/genai": "^1.38.0"
+    "@google/genai": "^1.39.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
