@@ -11,22 +11,20 @@ import {
   CheckCircle2,
   Loader2,
   Clock,
-  Settings,
-  ShieldCheck,
-  Cpu
+  Key,
+  ShieldCheck
 } from 'lucide-react';
-import { ProductInput, ProductResult, ProcessingStatus, ApiProvider } from './types';
-import { processProductsBatch as processWithGemini } from './services/geminiService';
+import { ProductInput, ProductResult, ProcessingStatus } from './types';
 import { processProductsWithDeepSeek } from './services/deepseekService';
 
 const App: React.FC = () => {
   const [rawInput, setRawInput] = useState('');
   const [results, setResults] = useState<ProductResult[]>([]);
   const [isWaitingForNextBatch, setIsWaitingForNextBatch] = useState(false);
-  const [provider, setProvider] = useState<ApiProvider>('gemini');
-  const [deepSeekKey, setDeepSeekKey] = useState('');
-  const [showSettings, setShowSettings] = useState(false);
   
+  // State for API Key (required)
+  const [apiKey, setApiKey] = useState('');
+
   const [status, setStatus] = useState<ProcessingStatus>({
     total: 0,
     completed: 0,
@@ -44,15 +42,14 @@ const App: React.FC = () => {
   };
 
   const handleProcess = async () => {
-    const inputs = parseInput(rawInput);
-    if (inputs.length === 0) {
-      alert('请提供有效的数据内容（至少包含 SKU 和 产品名称）。');
+    if (!apiKey.trim()) {
+      alert('请先输入 DeepSeek API Key 才能开始使用。');
       return;
     }
 
-    if (provider === 'deepseek' && !deepSeekKey.trim()) {
-      alert('请先在设置中输入 DeepSeek API Key。');
-      setShowSettings(true);
+    const inputs = parseInput(rawInput);
+    if (inputs.length === 0) {
+      alert('请提供有效的数据内容（至少包含 SKU 和 产品名称）。');
       return;
     }
 
@@ -65,7 +62,7 @@ const App: React.FC = () => {
     setResults([]);
 
     try {
-      const batchSize = provider === 'gemini' ? 4 : 5; // DeepSeek handles slightly larger batches well
+      const batchSize = 5; 
       
       for (let i = 0; i < inputs.length; i += batchSize) {
         const batch = inputs.slice(i, i + batchSize);
@@ -76,12 +73,8 @@ const App: React.FC = () => {
           setIsWaitingForNextBatch(false);
         }
 
-        let batchResults: ProductResult[];
-        if (provider === 'deepseek') {
-          batchResults = await processProductsWithDeepSeek(batch, deepSeekKey);
-        } else {
-          batchResults = await processWithGemini(batch);
-        }
+        // Always call DeepSeek
+        const batchResults = await processProductsWithDeepSeek(batch, apiKey);
         
         setResults(prev => [...prev, ...batchResults]);
         
@@ -93,7 +86,7 @@ const App: React.FC = () => {
     } catch (err: any) {
       setStatus(prev => ({ 
         ...prev, 
-        error: `处理中断: ${err.message}。建议导出已完成的部分并检查网络/API Key。` 
+        error: `处理中断: ${err.message}。请检查 API Key 余额或网络连接。` 
       }));
     } finally {
       setStatus(prev => ({ ...prev, isProcessing: false }));
@@ -130,7 +123,7 @@ const App: React.FC = () => {
     const blob = new Blob([`\ufeff${header}\n${rows}`], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `ozon_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `ozon_export_deepseek_${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
   }, [results]);
 
@@ -156,19 +149,12 @@ const App: React.FC = () => {
               <p className="text-sm text-gray-500 font-medium tracking-wide flex items-center gap-2">
                 智能 AI 俄语 SEO 优化系统 
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                  {provider === 'gemini' ? 'Gemini 引擎' : 'DeepSeek 引擎'}
+                  DeepSeek 引擎
                 </span>
               </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-             <button 
-                onClick={() => setShowSettings(!showSettings)}
-                className={`p-2 rounded-lg transition ${showSettings ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                title="设置"
-             >
-               <Settings size={20} />
-             </button>
              {(results.length > 0 || rawInput.length > 0) && (
                 <button 
                   onClick={clearAll}
@@ -180,49 +166,31 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        {/* Settings Panel */}
-        {showSettings && (
-          <div className="bg-white p-6 rounded-2xl shadow-md border border-blue-100 animate-in slide-in-from-top-4 duration-300">
-            <div className="flex items-center gap-2 mb-4 text-blue-700 font-bold">
-              <ShieldCheck size={20} />
-              <h3>API 与 模型配置</h3>
+        {/* API Key Configuration Section (Mandatory) */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-blue-100">
+          <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
+            <div className="flex-grow w-full">
+              <label className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-2">
+                <Key size={16} className="text-blue-600" />
+                DeepSeek API Key (必填)
+              </label>
+              <input 
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="sk-..."
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm font-mono transition"
+              />
+              <p className="text-[10px] text-gray-400 mt-2 flex items-center gap-1">
+                <ShieldCheck size={10} /> 
+                Key 仅存储于本地浏览器内存，刷新页面后需重新输入。
+              </p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                  <Cpu size={14} /> 选择 AI 引擎
-                </label>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => setProvider('gemini')}
-                    className={`flex-1 py-2 px-4 rounded-xl text-sm font-bold border-2 transition ${provider === 'gemini' ? 'bg-blue-50 border-blue-600 text-blue-700' : 'border-gray-100 text-gray-400'}`}
-                  >
-                    Gemini (默认)
-                  </button>
-                  <button 
-                    onClick={() => setProvider('deepseek')}
-                    className={`flex-1 py-2 px-4 rounded-xl text-sm font-bold border-2 transition ${provider === 'deepseek' ? 'bg-blue-50 border-blue-600 text-blue-700' : 'border-gray-100 text-gray-400'}`}
-                  >
-                    DeepSeek
-                  </button>
-                </div>
-              </div>
-              {provider === 'deepseek' && (
-                <div className="space-y-2 animate-in fade-in duration-300">
-                  <label className="text-sm font-bold text-gray-700">DeepSeek API Key</label>
-                  <input 
-                    type="password"
-                    value={deepSeekKey}
-                    onChange={(e) => setDeepSeekKey(e.target.value)}
-                    placeholder="在此输入您的 sk-..."
-                    className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
-                  />
-                  <p className="text-[10px] text-gray-400 italic">API Key 仅存储于浏览器内存中，刷新页面即清除</p>
-                </div>
-              )}
+            <div className="hidden md:block text-xs text-gray-400 max-w-xs leading-tight pb-2">
+              本工具现已全面接入 DeepSeek 模型，请确保您的 API Key 有效且有剩余额度。
             </div>
           </div>
-        )}
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: Input */}
@@ -244,10 +212,10 @@ const App: React.FC = () => {
               <div className="mt-6">
                 <button
                   onClick={handleProcess}
-                  disabled={status.isProcessing || !rawInput.trim()}
+                  disabled={status.isProcessing || !rawInput.trim() || !apiKey.trim()}
                   className={`
                     w-full flex items-center justify-center gap-2 py-4 rounded-xl font-bold shadow-lg transition-all
-                    ${status.isProcessing || !rawInput.trim() 
+                    ${status.isProcessing || !rawInput.trim() || !apiKey.trim()
                       ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none' 
                       : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95'}
                   `}
@@ -255,12 +223,12 @@ const App: React.FC = () => {
                   {status.isProcessing ? (
                     <>
                       <Loader2 className="animate-spin" size={20} />
-                      {isWaitingForNextBatch ? '正在切换下一批...' : `处理中 ${status.completed}/${status.total}`}
+                      {isWaitingForNextBatch ? '正在切换下一批...' : `DeepSeek 处理中 ${status.completed}/${status.total}`}
                     </>
                   ) : (
                     <>
                       <Play size={20} fill="currentColor" />
-                      立即开始 ({provider === 'gemini' ? 'Gemini' : 'DeepSeek'})
+                      {!apiKey.trim() ? '请先输入 API Key' : '开始生成'}
                     </>
                   )}
                 </button>
@@ -287,7 +255,7 @@ const App: React.FC = () => {
                     {status.isProcessing ? (
                        <div className="flex items-center gap-2 text-blue-600">
                          <Clock size={18} className="animate-pulse" />
-                         <span className="font-bold text-sm">正在增量生成，请稍候...</span>
+                         <span className="font-bold text-sm">正在增量生成...</span>
                        </div>
                     ) : (
                       <div className="flex items-center gap-2 text-green-600">
@@ -356,10 +324,10 @@ const App: React.FC = () => {
       </div>
 
       <footer className="max-w-7xl mx-auto mt-12 py-8 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center text-gray-400 text-xs gap-4">
-        <p>© {new Date().getFullYear()} Ozon SEO 助手 - 您的跨境出海 AI 专家</p>
+        <p>© {new Date().getFullYear()} Ozon SEO 助手 (DeepSeek 专版)</p>
         <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1"><ShieldCheck size={12} /> 多引擎支持 (Gemini/DeepSeek)</span>
-          <span className="flex items-center gap-1"><CheckCircle2 size={12} /> 支持断点输出与数据安全</span>
+          <span className="flex items-center gap-1"><ShieldCheck size={12} /> 数据本地加密</span>
+          <span className="flex items-center gap-1"><CheckCircle2 size={12} /> 支持断点续传</span>
         </div>
       </footer>
     </div>

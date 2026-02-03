@@ -1,5 +1,6 @@
+
 {
-  "name": "ozon 名称简介AI生成",
-  "description": "一个专门为跨境卖家设计的工具，用于将中文产品SKU和名称转换为符合 Ozon 平台 SEO 规则的俄语名称和简介，并支持回译对照与快速导出。",
+  "name": "Ozon 跨境电商助手 (DeepSeek版)",
+  "description": "基于 DeepSeek AI 的跨境卖家工具，用于将中文产品SKU和名称转换为符合 Ozon 平台 SEO 规则的俄语名称和简介，支持回译对照与快速导出。",
   "requestFramePermissions": []
 }

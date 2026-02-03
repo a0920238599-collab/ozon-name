@@ -1,6 +1,4 @@
 
-export type ApiProvider = 'gemini' | 'deepseek';
-
 export interface ProductInput {
   sku: string;
   chineseName: string;
